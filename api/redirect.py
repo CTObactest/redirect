@@ -2,6 +2,7 @@
 
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote
+import os # Import the os module
 
 # Your bot's username - MUST match your actual bot
 BOT_USERNAME = "PremiumtelenovelasBot"
@@ -9,15 +10,21 @@ BOT_USERNAME = "PremiumtelenovelasBot"
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # Parse the incoming URL to get the query parameters
-            parsed_url = urlparse(self.path)
-            query_components = parse_qs(parsed_url.query)
-            
+            # Get the query string from the Vercel environment variable
+            query_string = os.environ.get('QUERY_STRING')
+
+            # If not running on Vercel, fall back to parsing self.path
+            if not query_string:
+                parsed_url = urlparse(self.path)
+                query_string = parsed_url.query
+
+            query_components = parse_qs(query_string)
+
             # Flutterwave sends these parameters: status, tx_ref, transaction_id
             # We need the tx_ref to create our payload
             tx_ref = query_components.get('tx_ref', [None])[0]
             status = query_components.get('status', [None])[0]
-            
+
             # Also check for our custom payload parameter (backup)
             custom_payload = query_components.get('payload', [None])[0]
 
@@ -53,7 +60,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Location', telegram_url)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
-            
+
             # Fallback HTML with auto-redirect and manual link
             html_content = f"""
                 <html>
@@ -67,7 +74,7 @@ class handler(BaseHTTPRequestHandler):
                 </html>
             """
             self.wfile.write(html_content.encode())
-            
+
         except Exception as e:
             # Handle any errors
             self.send_response(500)
