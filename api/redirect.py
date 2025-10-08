@@ -1,7 +1,6 @@
 # /api/redirect.py
 
 from http.server import BaseHTTPRequestHandler
-# Change 1: Added 'quote' to the import list
 from urllib.parse import urlparse, parse_qs, unquote, quote
 import os
 
@@ -22,7 +21,6 @@ class handler(BaseHTTPRequestHandler):
             query_components = parse_qs(query_string)
 
             # Flutterwave sends these parameters: status, tx_ref, transaction_id
-            # We need the tx_ref to create our payload
             tx_ref = query_components.get('tx_ref', [None])[0]
             status = query_components.get('status', [None])[0]
 
@@ -33,6 +31,9 @@ class handler(BaseHTTPRequestHandler):
             if tx_ref:
                 # Flutterwave redirect - use tx_ref
                 payload = f"verify_{tx_ref}"
+                # NEW: Sanitize the payload by removing characters not allowed by Telegram
+                payload = payload.replace("(", "")
+                payload = payload.replace(")", "")
             elif custom_payload:
                 # Direct access with payload
                 payload = unquote(custom_payload)
@@ -41,19 +42,11 @@ class handler(BaseHTTPRequestHandler):
                 self.send_response(400)
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
-                error_html = f"""
-                    <html>
-                        <body>
-                            <h1>Error</h1>
-                            <p>Payment verification data is missing.</p>
-                            <p>Received parameters: {', '.join(query_components.keys())}</p>
-                        </body>
-                    </html>
-                """
+                error_html = "<html><body><h1>Error: Payment data missing.</h1></body></html>"
                 self.wfile.write(error_html.encode())
                 return
 
-            # Change 2: Encoded the payload to make it URL-safe
+            # Construct the clean Telegram deep link (with URL encoding)
             telegram_url = f"https://t.me/{BOT_USERNAME}?start={quote(payload)}"
 
             # Send a 302 redirect response with HTML fallback
@@ -81,12 +74,5 @@ class handler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
-            error_html = f"""
-                <html>
-                    <body>
-                        <h1>Server Error</h1>
-                        <p>An error occurred: {str(e)}</p>
-                    </body>
-                </html>
-            """
+            error_html = f"<html><body><h1>Server Error</h1><p>An error occurred: {str(e)}</p></body></html>"
             self.wfile.write(error_html.encode())
