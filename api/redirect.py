@@ -1,8 +1,9 @@
 # /api/redirect.py
 
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs, unquote
-import os # Import the os module
+# Change 1: Added 'quote' to the import list
+from urllib.parse import urlparse, parse_qs, unquote, quote
+import os
 
 # Your bot's username - MUST match your actual bot
 BOT_USERNAME = "PremiumtelenovelasBot"
@@ -52,8 +53,8 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(error_html.encode())
                 return
 
-            # Construct the clean Telegram deep link
-            telegram_url = f"https://t.me/{BOT_USERNAME}?start={payload}"
+            # Change 2: Encoded the payload to make it URL-safe
+            telegram_url = f"https://t.me/{BOT_USERNAME}?start={quote(payload)}"
 
             # Send a 302 redirect response with HTML fallback
             self.send_response(302)
